@@ -50,7 +50,7 @@ class PlaywrightController:
     """
 
     def __init__(self, headless: bool = None,
-                 browser_type: str = "webkit",
+                 browser_type: str = None,
                  proxy_url: Optional[str] = "",
                  user_agent: Optional[str] = None,
                  debug: bool = False,
@@ -68,6 +68,15 @@ class PlaywrightController:
         """
         # 默认使用 headless=True（适合Docker环境），可通过环境变量覆盖
         self.headless = os.environ.get("HEADLESS", "true").lower() == "true" if headless is None else headless
+        if browser_type is None:
+            try:
+                from core.config import cfg
+                browser_type = cfg.get("gather.browser_type", None)
+            except Exception:
+                browser_type = None
+        browser_type = str(browser_type or os.environ.get("BROWSER_TYPE", "firefox")).lower()
+        if browser_type in ("edge", "chrome"):
+            browser_type = "chromium"
         self.browser_type = browser_type
         self.proxy_url = proxy_url
         self.debug = debug
