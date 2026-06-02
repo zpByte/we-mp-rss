@@ -28,3 +28,5 @@ test.yaml
 .travis
 test.py
 .codeartsdoer
+.DS_Store
+.codeflicker/
