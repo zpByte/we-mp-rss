@@ -38,6 +38,8 @@ class ExportArticlesRequest(BaseModel):
     export_json: bool = Field(False, description="是否导出JSON格式")
     export_csv: bool = Field(False, description="是否导出CSV格式")
     export_pdf: bool = Field(True, description="是否导出PDF格式")
+    download_images: bool = Field(False, description="是否下载Markdown图片到本地")
+    localize_images: bool = Field(False, description="是否将Markdown图片地址改写为本地相对路径")
     zip_filename: Optional[str] = Field(None, description="压缩包文件名，为空则自动生成", example="")
 
 class ExportArticlesResponse(BaseModel):
@@ -66,7 +68,9 @@ def _export_articles_worker(
     export_json: bool,
     export_csv: bool,
     export_pdf: bool,
-    zip_filename: Optional[str]
+    zip_filename: Optional[str],
+    download_images: bool,
+    localize_images: bool
 ):
     """
     导出文章的工作线程函数
@@ -84,7 +88,9 @@ def _export_articles_worker(
         export_json=export_json,
         export_csv=export_csv,
         export_pdf=export_pdf,
-        zip_filename=zip_filename
+        zip_filename=zip_filename,
+        download_images=download_images,
+        localize_images=localize_images
     )
 
 @router.post("/export/articles", summary="导出文章")
@@ -124,7 +130,9 @@ async def export_articles(
                 request.export_json,
                 request.export_csv,
                 request.export_pdf,
-                request.zip_filename
+                request.zip_filename,
+                request.download_images,
+                request.localize_images
             ),
             name=f"export_articles_{request.mp_id}"
         )

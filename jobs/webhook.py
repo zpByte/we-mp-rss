@@ -162,10 +162,10 @@ def call_webhook(hook: MessageWebHook, is_test: bool = False) -> str:
     payload = parser.render(data)
     logger.info(f'Webhook payload: {payload}')
 
-    # 检查web_hook_url是否为空
+    # 空 webhook 表示采集-only 任务：保留文章抓取，不发送外部通知。
     if not hook.task.web_hook_url:
-        logger.error("web_hook_url为空")
-        return
+        logger.info("web_hook_url为空，跳过Webhook通知")
+        return "Webhook地址为空，已跳过通知"
     # 发送webhook请求
     import requests
     import json

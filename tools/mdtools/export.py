@@ -11,7 +11,7 @@ from jobs.notice import sys_notice
 
 def process_single_article(art, add_title, remove_images, remove_links, export_md, 
                           export_docx, export_json, export_csv, export_pdf, 
-                          docx_path, writer):
+                          docx_path, writer, download_images=False, localize_images=False):
     """
     处理单篇文章的导出逻辑
     重构：
@@ -55,19 +55,35 @@ def process_single_article(art, add_title, remove_images, remove_links, export_m
         md_generated = False
         if export_md and html_content:
             try:
-                from tools.mdtools.html2doc import html_to_markdown_file
-                
-                md_full_path = f"{docx_path}{md_filename}"
-                
-                # 配置选项
-                config = {
-                    'remove_images': remove_images,
-                    'remove_links': remove_links,
-                }
-                
-                # 转换 HTML 为 Markdown
-                document_title = art.title if add_title else None
-                success = html_to_markdown_file(html_content, md_full_path, document_title, config)
+                if download_images or localize_images:
+                    from tools.mdtools.archive import write_article_markdown_file
+
+                    md_dir = os.path.join(docx_path, sanitize_filename(name))
+                    md_full_path = os.path.join(md_dir, "index.md")
+                    write_article_markdown_file(
+                        art,
+                        md_full_path,
+                        add_title=add_title,
+                        remove_links=remove_links,
+                        localize_images=True,
+                        download_images=True,
+                        write_meta=True,
+                    )
+                    success = True
+                else:
+                    from tools.mdtools.html2doc import html_to_markdown_file
+
+                    md_full_path = f"{docx_path}{md_filename}"
+
+                    # 配置选项
+                    config = {
+                        'remove_images': remove_images,
+                        'remove_links': remove_links,
+                    }
+
+                    # 转换 HTML 为 Markdown
+                    document_title = art.title if add_title else None
+                    success = html_to_markdown_file(html_content, md_full_path, document_title, config)
                 
                 if success:
                     print_success(f"Markdown文件已生成: {md_filename}")
@@ -173,7 +189,7 @@ def process_single_article(art, add_title, remove_images, remove_links, export_m
 def process_articles(session, mp_id=None,doc_id=None, page_size=10, page_count=1, add_title=True, document_id=None,
                     remove_images=False, remove_links=False, export_md=True, 
                     export_docx=True, export_json=True, export_csv=True, export_pdf=True,
-                    docx_path="./data/docs/", writer=None):
+                    docx_path="./data/docs/", writer=None, download_images=False, localize_images=False):
     """
     处理文章数据的核心函数
     返回处理的文章数量
@@ -206,13 +222,15 @@ def process_articles(session, mp_id=None,doc_id=None, page_size=10, page_count=1
         for art in arts:
             if process_single_article(art, add_title, remove_images, remove_links, 
                                     export_md, export_docx, export_json, export_csv, 
-                                    export_pdf, docx_path, writer):
+                                    export_pdf, docx_path, writer, download_images=download_images,
+                                    localize_images=localize_images):
                 record_count += 1
     
     return record_count
 
 def export_md_to_doc(mp_id:str=None,doc_id:list=None,page_size:int=10,page_count:int=1,add_title=True,remove_images:bool=True,remove_links:bool=False
-                     ,export_md:bool=False,export_docx:bool=False,export_json:bool=False,export_csv:bool=False,export_pdf:bool=True,domain="",zip_filename=None,zip_file=True):
+                     ,export_md:bool=False,export_docx:bool=False,export_json:bool=False,export_csv:bool=False,export_pdf:bool=True,domain="",zip_filename=None,zip_file=True
+                     ,download_images:bool=False,localize_images:bool=False):
     session = DB.get_session()
     if mp_id==None:
         raise ValueError("公众号ID不能为空")
@@ -245,7 +263,9 @@ def export_md_to_doc(mp_id:str=None,doc_id:list=None,page_size:int=10,page_count
         export_csv=export_csv,
         export_pdf=export_pdf,
         docx_path=docx_path,
-        writer=writer
+        writer=writer,
+        download_images=download_images,
+        localize_images=localize_images
     )
     
     # 关闭CSV文件（如果打开了）

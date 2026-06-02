@@ -24,7 +24,7 @@ class MpsWeb(WxGather):
             logger.error(e)
         return ""
     # 重写 get_Articles 方法
-    def get_Articles(self, faker_id:str='',Mps_id:str='',Mps_title="",CallBack=None,start_page:int=0,MaxPage:int=1,interval=10,Gather_Content=False,Item_Over_CallBack=None,Over_CallBack=None):
+    def get_Articles(self, faker_id:str='',Mps_id:str='',Mps_title="",CallBack=None,start_page:int=0,MaxPage:int=1,interval=10,Gather_Content=False,Item_Over_CallBack=None,Over_CallBack=None,since_ts=None):
         super().Start(mp_id=Mps_id)
         if self.Gather_Content:
             Gather_Content=True
@@ -47,8 +47,9 @@ class MpsWeb(WxGather):
         session=self.session
         # 起始页数
         i = start_page
+        stop_by_since = False
         while True:
-            if i >= MaxPage:
+            if i >= MaxPage or stop_by_since:
                 break
             begin = i * count
             params["begin"] = str(begin)
@@ -97,6 +98,9 @@ class MpsWeb(WxGather):
                             if "appmsgex" in publish_info:
                                 # info = '"{}","{}","{}","{}"'.format(str(item["aid"]), item['title'], item['link'], str(item['create_time']))
                                 for item in publish_info["appmsgex"]:
+                                    if super().IsBeforeSince(item, since_ts):
+                                        stop_by_since = True
+                                        break
                                     if Gather_Content:
                                         if not super().HasGathered(item["aid"]):
                                             item["content"] = self.content_extract(item['link'])
@@ -108,6 +112,10 @@ class MpsWeb(WxGather):
                                     item["mp_id"] = Mps_id
                                     if CallBack is not None:
                                         super().FillBack(CallBack=CallBack,data=item,Ext_Data={"mp_title":Mps_title,"mp_id":Mps_id})
+                            if stop_by_since:
+                                break
+                        if stop_by_since:
+                            break
                     print(f"第{i+1}页爬取成功\n")
                 # 翻页
                 i += 1

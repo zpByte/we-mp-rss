@@ -137,6 +137,22 @@ gather:
   #浏览器类型 默认firefox 允许值 firefox/edge/webkit
   browser_type: ${BROWSER_TYPE:-firefox}
 
+archive:
+  # 是否启用公众号文章自动归档任务
+  enabled: ${ARCHIVE_ENABLED:-False}
+  # cron 表达式，默认每天 03:00 执行
+  cron: ${ARCHIVE_CRON:-0 3 * * *}
+  # 默认回看天数
+  window_days: ${ARCHIVE_WINDOW_DAYS:-7}
+  # 单个公众号最大翻页数
+  max_pages: ${ARCHIVE_MAX_PAGES:-20}
+  # 归档输出目录
+  output_dir: ${ARCHIVE_OUTPUT_DIR:-./data/article_archive}
+  # 是否下载正文图片并改写为相对路径
+  download_images: ${ARCHIVE_DOWNLOAD_IMAGES:-True}
+  # 指定公众号 ID，逗号分隔；为空表示所有启用公众号
+  mp_ids: ${ARCHIVE_MP_IDS:-}
+
 #代理配置
 proxy:
   #是否启用代理 默认False

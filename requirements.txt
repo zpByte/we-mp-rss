@@ -22,6 +22,7 @@ idna==3.10
 lxml==6.0.2
 Markdown==3.9
 markdownify==1.2.0
+mcp[cli]==1.6.0
 outcome==1.3.0.post0
 packaging==25.0
 passlib==1.7.4

@@ -4,6 +4,7 @@ from .token import set_token
 from core.print import print_warning,print_success
 from core.redis_client import redis_client
 import json
+import time
 #判断是否是有效登录 
 
 # 初始化全局变量（作为Redis不可用时的回退）
@@ -31,49 +32,77 @@ def setStatus(status:bool):
     with login_lock:
         WX_LOGIN_ED = status
 
+def _parse_expiry_timestamp(expiry: dict):
+    """Return an absolute expiry timestamp when one is available."""
+    expiry_timestamp = expiry.get("expiry_timestamp")
+    if expiry_timestamp:
+        try:
+            return float(expiry_timestamp)
+        except (TypeError, ValueError):
+            pass
+
+    expiry_time = expiry.get("expiry_time")
+    if expiry_time:
+        from datetime import datetime
+
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"):
+            try:
+                return datetime.strptime(str(expiry_time), fmt).timestamp()
+            except ValueError:
+                continue
+
+    return None
+
+def _is_token_expiry_valid(expiry) -> bool:
+    """Check token expiry, preferring absolute time over stale remaining seconds."""
+    if not expiry:
+        return True
+
+    expiry_timestamp = _parse_expiry_timestamp(expiry)
+    if expiry_timestamp is not None:
+        return expiry_timestamp > time.time()
+
+    remaining = expiry.get("remaining_seconds")
+    if remaining is not None:
+        try:
+            return int(remaining) > 0
+        except (TypeError, ValueError):
+            return False
+
+    return True
+
+def _has_valid_token() -> bool:
+    token_data = getLoginInfo()
+    if not token_data or not token_data.get("token"):
+        return False
+
+    if not _is_token_expiry_valid(token_data.get("expiry")):
+        print_warning("Token已过期，需要重新登录")
+        setStatus(False)
+        return False
+
+    return True
+
 def getStatus():
     """获取登录状态，优先从Redis读取，失败则使用全局变量，并检查token是否过期"""
     global WX_LOGIN_ED
-    import time
 
     # 尝试从Redis读取
     if redis_client.is_connected:
         try:
             val = redis_client._client.get(REDIS_KEY_STATUS)
             if val is not None and val == "1":
-                # 检查token是否过期
-                token_data = getLoginInfo()
-                if token_data and 'expiry' in token_data and token_data['expiry']:
-                    expiry = token_data['expiry']
-                    # 检查剩余秒数
-                    if 'remaining_seconds' in expiry:
-                        remaining = expiry['remaining_seconds']
-                        if remaining is not None and remaining > 0:
-                            return True
-                        else:
-                            # token已过期，更新状态
-                            print_warning("Token已过期，需要重新登录")
-                            setStatus(False)
-                            return False
-                    # 检查过期时间戳
-                    elif 'expiry_timestamp' in expiry:
-                        expiry_timestamp = expiry['expiry_timestamp']
-                        # 过期时间戳 >= 当前时间，说明还没过期
-                        if expiry_timestamp and expiry_timestamp >= time.time():
-                            return True
-                        else:
-                            # token已过期，更新状态
-                            print_warning("Token已过期，需要重新登录")
-                            setStatus(False)
-                            return False
-                # 没有过期信息，但状态为True，暂时返回True
-                return True
+                return _has_valid_token()
+            if val is not None and val == "0":
+                return False
         except Exception as e:
             print_warning(f"检查登录状态失败: {e}")
             pass
     # 回退到全局变量
     with login_lock:
-        return WX_LOGIN_ED
+        if WX_LOGIN_ED:
+            return _has_valid_token()
+    return _has_valid_token()
 def getLoginInfo():
     from driver.token import _get_token_data
     return _get_token_data()
@@ -108,7 +137,6 @@ def Success(data:dict,ext_data:dict={}):
 
 def CanGetToken():
     """检查是否可以获取Token，包括检查登录状态和token过期时间"""
-    import time
 
     # 检查登录状态
     if not getStatus():
@@ -122,22 +150,9 @@ def CanGetToken():
         setStatus(False)
         return False
 
-    # 检查过期信息
-    expiry = token_data.get('expiry')
-    if expiry:
-        # 检查剩余秒数
-        if 'remaining_seconds' in expiry:
-            remaining = expiry['remaining_seconds']
-            if remaining is not None and remaining <= 0:
-                print_warning("Token已过期，请重新扫码登录")
-                setStatus(False)
-                return False
-        # 检查过期时间戳
-        elif 'expiry_timestamp' in expiry:
-            expiry_timestamp = expiry['expiry_timestamp']
-            if expiry_timestamp and expiry_timestamp <= time.time():
-                print_warning("Token已过期，请重新扫码登录")
-                setStatus(False)
-                return False
+    if not _is_token_expiry_valid(token_data.get('expiry')):
+        print_warning("Token已过期，请重新扫码登录")
+        setStatus(False)
+        return False
 
     return True

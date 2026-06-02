@@ -75,7 +75,13 @@ if __name__ == '__main__':
         print_success("已开启自动修正文章任务")
     else:
         print_warning("未开启自动修正文章任务")
-    
+
+    if cfg.get("archive.enabled", False):
+        from jobs.archive_articles import start_archive_job
+        start_archive_job()
+    else:
+        print_warning("文章自动归档任务未启用")
+
     # 启动文章统计定时刷新任务
     if cfg.get("server.article_stats_refresh_enabled", False):  # 默认关闭
         from jobs.mps import start_article_stats_refresh

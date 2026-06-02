@@ -53,6 +53,25 @@ class WxGather:
             return True
         self.RecordAid(aid)
         return False
+    def article_timestamp(self,item:dict):
+        for key in ("update_time", "publish_time", "create_time"):
+            value = item.get(key)
+            if value in ("", None):
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+        return 0
+    def IsBeforeSince(self,item:dict,since_ts=None):
+        if since_ts in ("", None):
+            return False
+        try:
+            since = int(since_ts)
+        except (TypeError, ValueError):
+            return False
+        article_ts = self.article_timestamp(item)
+        return article_ts > 0 and article_ts < since
     def Model(self,type=None):
         type=type or cfg.get("gather.model","web")
         print(f"采集模式:{type}")
